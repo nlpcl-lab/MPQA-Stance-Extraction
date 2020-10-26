@@ -10,7 +10,7 @@ from torch.optim.adamw import AdamW
 import transformers
 from model import Net
 
-from data_load import ACE2005Dataset, pad, all_triggers, all_entities, all_postags, all_arguments, tokenizer
+from data_load import ACE2005Dataset, pad, all_triggers, all_entities, all_arguments, tokenizer
 from utils import report_to_telegram, set_random_seed
 from eval import eval
 
@@ -18,11 +18,26 @@ from eval import eval
 def train(model, iterator, optimizer, criterion, scheduler):
     model.train()
     for i, batch in enumerate(iterator):
-        tokens_x_2d, entities_x_3d, postags_x_2d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = batch
+        tokens_x_2d, entities_x_3d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = batch
         optimizer.zero_grad()
         trigger_logits, triggers_y_2d, trigger_hat_2d, argument_hidden, argument_keys = model.module.predict_triggers(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
-                                                                                                                      postags_x_2d=postags_x_2d, head_indexes_2d=head_indexes_2d,
+                                                                                                                      head_indexes_2d=head_indexes_2d,
                                                                                                                       triggers_y_2d=triggers_y_2d, arguments_2d=arguments_2d)
+        """
+        print(triggers_y_2d.shape)
+        print(len(words_2d), len(words_2d[0]))
+        print(triggers_y_2d[1])
+        print(words_2d[1])
+        input()
+        
+        print(trigger_logits.shape)
+        print(type(trigger_logits))
+
+        print(trigger_logits.view(-1, trigger_logits.shape[-1]).shape)
+        print(trigger_logits.view(-1, trigger_logits.shape[-1]))
+        print(triggers_y_2d.shape)
+        print(triggers_y_2d.view(-1).shape)
+        """
 
         trigger_logits = trigger_logits.view(-1, trigger_logits.shape[-1])
         trigger_loss = criterion(trigger_logits, triggers_y_2d.view(-1))
@@ -53,7 +68,6 @@ def train(model, iterator, optimizer, criterion, scheduler):
             print("tokens_x_2d[0]:", tokenizer.convert_ids_to_tokens(
                 tokens_x_2d[0])[:seqlens_1d[0]])
             print("entities_x_3d[0]:", entities_x_3d[0][:seqlens_1d[0]])
-            print("postags_x_2d[0]:", postags_x_2d[0][:seqlens_1d[0]])
             print("head_indexes_2d[0]:", head_indexes_2d[0][:seqlens_1d[0]])
             print("triggers_2d[0]:", triggers_2d[0])
             print("triggers_y_2d[0]:", triggers_y_2d.cpu(
@@ -71,7 +85,7 @@ def train(model, iterator, optimizer, criterion, scheduler):
 if __name__ == "__main__":
     set_random_seed(42)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", type=int, default=48)
+    parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--n_epochs", type=int, default=100)  # 50
     parser.add_argument("--logdir", type=str, default="single")
@@ -90,7 +104,6 @@ if __name__ == "__main__":
         device=device,
         trigger_size=len(all_triggers),
         entity_size=len(all_entities),
-        all_postags=len(all_postags),
         argument_size=len(all_arguments)
     )
     if device == 'cuda':
