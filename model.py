@@ -11,13 +11,11 @@ from utils import find_triggers
 
 
 class Net(nn.Module):
-    def __init__(self, trigger_size=None, entity_size=None, all_postags=None, postag_embedding_dim=50, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu")):
+    def __init__(self, trigger_size=None, entity_size=None, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu")):
         super().__init__()
         self.bert = BertModel.from_pretrained('bert-base-uncased')
         self.entity_embed = MultiLabelEmbeddingLayer(
             num_embeddings=entity_size, embedding_dim=entity_embedding_dim, device=device)
-        self.postag_embed = nn.Embedding(
-            num_embeddings=all_postags, embedding_dim=postag_embedding_dim)
         self.rnn = nn.LSTM(bidirectional=True, num_layers=1,
                            input_size=768, hidden_size=768 // 2, batch_first=True)
 
@@ -37,13 +35,11 @@ class Net(nn.Module):
         self.device = device
         self.finetune = finetune
 
-    def predict_triggers(self, tokens_x_2d, entities_x_3d, postags_x_2d, head_indexes_2d, triggers_y_2d, arguments_2d):
+    def predict_triggers(self, tokens_x_2d, entities_x_3d, head_indexes_2d, triggers_y_2d, arguments_2d):
         tokens_x_2d = torch.LongTensor(tokens_x_2d).to(self.device)
-        # postags_x_2d = torch.LongTensor(postags_x_2d).to(self.device)
         triggers_y_2d = torch.LongTensor(triggers_y_2d).to(self.device)
         head_indexes_2d = torch.LongTensor(head_indexes_2d).to(self.device)
 
-        # postags_x_2d = self.postag_embed(postags_x_2d)
         # entity_x_2d = self.entity_embed(entities_x_3d)
 
         if self.training and self.finetune:

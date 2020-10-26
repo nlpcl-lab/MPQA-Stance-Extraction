@@ -3,14 +3,13 @@ import torch
 from torch.utils import data
 import json
 
-from consts import NONE, PAD, CLS, SEP, UNK, TRIGGERS, ARGUMENTS, ENTITIES, POSTAGS
+from consts import NONE, PAD, CLS, SEP, UNK, TRIGGERS, ARGUMENTS, ENTITIES
 from utils import build_vocab
 from pytorch_pretrained_bert import BertTokenizer
 
 # init vocab
 all_triggers, trigger2idx, idx2trigger = build_vocab(TRIGGERS)
 all_entities, entity2idx, idx2entity = build_vocab(ENTITIES)
-all_postags, postag2idx, idx2postag = build_vocab(POSTAGS, BIO_tagging=False)
 all_arguments, argument2idx, idx2argument = build_vocab(
     ARGUMENTS, BIO_tagging=False)
 
@@ -20,7 +19,7 @@ tokenizer = BertTokenizer.from_pretrained(
 
 class ACE2005Dataset(data.Dataset):
     def __init__(self, fpath):
-        self.sent_li, self.entities_li, self.postags_li, self.triggers_li, self.arguments_li = [], [], [], [], []
+        self.sent_li, self.entities_li, self.triggers_li, self.arguments_li = [], [], [], []
 
         with open(fpath, 'r') as f:
             data = json.load(f)
@@ -37,7 +36,7 @@ class ACE2005Dataset(data.Dataset):
                 words = item['words']
                 entities = [[NONE] for _ in range(len(words))]
                 triggers = [NONE] * len(words)
-                postags = item['pos-tags']
+
                 arguments = {
                     'candidates': [
                         # ex. (5, 6, "entity_type_str"), ...
@@ -46,7 +45,7 @@ class ACE2005Dataset(data.Dataset):
                         # ex. (1, 3, "trigger_type_str"): [(5, 6, "argument_role_idx"), ...]
                     },
                 }
-
+                """
                 for entity_mention in item['golden-entity-mentions']:
                     arguments['candidates'].append(
                         (entity_mention['start'], entity_mention['end'], entity_mention['entity-type']))
@@ -62,6 +61,7 @@ class ACE2005Dataset(data.Dataset):
                             entities[i][0] = entity_type
                         else:
                             entities[i].append(entity_type)
+                """
 
                 for event_mention in item['golden-event-mentions']:
                     for i in range(event_mention['trigger']['start'], event_mention['trigger']['end']):
@@ -83,10 +83,8 @@ class ACE2005Dataset(data.Dataset):
 
                 # self.sent_li.append([CLS] + words + [SEP])
                 # self.entities_li.append([[PAD]] + entities + [[PAD]])
-                # self.postags_li.append([PAD] + postags + [PAD])
                 self.sent_li.append([CLS] + words)
                 self.entities_li.append([[PAD]] + entities)
-                self.postags_li.append([PAD] + postags)
 
                 self.triggers_li.append(triggers)
                 self.arguments_li.append(arguments)
@@ -94,13 +92,13 @@ class ACE2005Dataset(data.Dataset):
     def __len__(self):
         return len(self.sent_li)
 
-    def __getitem__(self, idx):
-        words, entities, postags, triggers, arguments = self.sent_li[idx], self.entities_li[
-            idx], self.postags_li[idx], self.triggers_li[idx], self.arguments_li[idx]
+    def __getitem__(self, idx): # gets sentence idx, tokenizes all, and returns the information of one sentence
+        words, entities, triggers, arguments = self.sent_li[idx], self.entities_li[
+            idx], self.triggers_li[idx], self.arguments_li[idx]
 
         # We give credits only to the first piece.
-        tokens_x, entities_x, postags_x, is_heads = [], [], [], []
-        for w, e, p in zip(words, entities, postags):
+        tokens_x, entities_x, is_heads = [], [], []
+        for w, e in zip(words, entities): # per word
             tokens = tokenizer.tokenize(w) if w not in [CLS, SEP] else [w]
             tokens_xx = tokenizer.convert_tokens_to_ids(tokens)
 
@@ -109,13 +107,10 @@ class ACE2005Dataset(data.Dataset):
             else:
                 is_head = [1] + [0] * (len(tokens) - 1)
 
-            p = [p] + [PAD] * (len(tokens) - 1)
             e = [e] + [[PAD]] * (len(tokens) - 1)  # <PAD>: no decision
-            p = [postag2idx[postag] for postag in p]
             e = [[entity2idx[entity] for entity in entities] for entities in e]
 
-            tokens_x.extend(tokens_xx), postags_x.extend(
-                p), entities_x.extend(e), is_heads.extend(is_head)
+            tokens_x.extend(tokens_xx), entities_x.extend(e), is_heads.extend(is_head)
 
         triggers_y = [trigger2idx[t] for t in triggers]
         head_indexes = []
@@ -125,7 +120,7 @@ class ACE2005Dataset(data.Dataset):
 
         seqlen = len(tokens_x)
 
-        return tokens_x, entities_x, postags_x, triggers_y, arguments, seqlen, head_indexes, words, triggers
+        return tokens_x, entities_x, triggers_y, arguments, seqlen, head_indexes, words, triggers
 
     def get_samples_weight(self):
         samples_weight = []
@@ -143,14 +138,12 @@ class ACE2005Dataset(data.Dataset):
 
 
 def pad(batch):
-    tokens_x_2d, entities_x_3d, postags_x_2d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = list(
+    tokens_x_2d, entities_x_3d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = list(
         map(list, zip(*batch)))
     maxlen = np.array(seqlens_1d).max()
 
     for i in range(len(tokens_x_2d)):
         tokens_x_2d[i] = tokens_x_2d[i] + [0] * (maxlen - len(tokens_x_2d[i]))
-        postags_x_2d[i] = postags_x_2d[i] + \
-            [0] * (maxlen - len(postags_x_2d[i]))
         head_indexes_2d[i] = head_indexes_2d[i] + \
             [0] * (maxlen - len(head_indexes_2d[i]))
         triggers_y_2d[i] = triggers_y_2d[i] + \
@@ -158,7 +151,7 @@ def pad(batch):
         entities_x_3d[i] = entities_x_3d[i] + [[entity2idx[PAD]]
                                                for _ in range(maxlen - len(entities_x_3d[i]))]
 
-    return tokens_x_2d, entities_x_3d, postags_x_2d, \
+    return tokens_x_2d, entities_x_3d, \
         triggers_y_2d, arguments_2d, \
         seqlens_1d, head_indexes_2d, \
         words_2d, triggers_2d
