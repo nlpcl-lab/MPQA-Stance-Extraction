@@ -3,12 +3,12 @@ import torch
 from torch.utils import data
 import json
 
-from consts import NONE, PAD, CLS, SEP, UNK, TRIGGERS, ARGUMENTS, ENTITIES
+from consts import NONE, PAD, CLS, SEP, UNK, ATTITUDES, ARGUMENTS, ENTITIES
 from utils import build_vocab
 from pytorch_pretrained_bert import BertTokenizer
 
 # init vocab
-all_triggers, trigger2idx, idx2trigger = build_vocab(TRIGGERS)
+all_attitudes, attitude2idx, idx2attitude = build_vocab(ATTITUDES)
 all_entities, entity2idx, idx2entity = build_vocab(ENTITIES)
 all_arguments, argument2idx, idx2argument = build_vocab(
     ARGUMENTS, BIO_tagging=False)
@@ -17,25 +17,18 @@ tokenizer = BertTokenizer.from_pretrained(
     'bert-base-uncased', do_lower_case=True, never_split=(PAD, CLS, SEP, UNK))
 
 
-class ACE2005Dataset(data.Dataset):
+class MPQADataset(data.Dataset):
     def __init__(self, fpath):
-        self.sent_li, self.entities_li, self.triggers_li, self.arguments_li = [], [], [], []
+        self.sent_li, self.entities_li, self.attitudes_li, self.arguments_li = [], [], [], []
 
         with open(fpath, 'r') as f:
             data = json.load(f)
             assert isinstance(data, list)
             for item_index, item in enumerate(data):
-                for k, v in item.items():
-                    if k == 'golden-event-mentions':
-                        for event_idx, event_detail in enumerate(v):
-                            event_type = event_detail['event_type'].split(":")[
-                                0]
-                            data[item_index][k][event_idx]['event_type'] = "EVENT"#event_type
-                            #print(event_type)
 
                 words = item['words']
                 entities = [[NONE] for _ in range(len(words))]
-                triggers = [NONE] * len(words)
+                attitudes = [NONE] * len(words)
 
                 arguments = {
                     'candidates': [
@@ -63,38 +56,43 @@ class ACE2005Dataset(data.Dataset):
                             entities[i].append(entity_type)
                 """
 
-                for event_mention in item['golden-event-mentions']:
-                    for i in range(event_mention['trigger']['start'], event_mention['trigger']['end']):
-                        trigger_type = event_mention['event_type']
-                        if i == event_mention['trigger']['start']:
-                            triggers[i] = 'B-{}'.format(trigger_type)
+                for att in item['attitudes']:
+                    if att['source'] != "w":
+                        continue
+                    for i in range(att['trigger']['start'], att['trigger']['end']):
+                        att_type = att['att_type']
+                        if att_type== 'specilation':
+                            att_type = 'speculation'
+                        if i == att['trigger']['start']:
+                            attitudes[i] = 'B-{}'.format(att_type)
                         else:
-                            triggers[i] = 'I-{}'.format(trigger_type)
+                            attitudes[i] = 'I-{}'.format(att_type)
 
                     event_key = (
-                        event_mention['trigger']['start'], event_mention['trigger']['end'], event_mention['event_type'])
+                        att['trigger']['start'], att['trigger']['end'], att['att_type'])
                     arguments['events'][event_key] = []
+                    """
                     for argument in event_mention['arguments']:
                         role = argument['role']
                         if role.startswith('Time'):
                             role = role.split('-')[0]
                         arguments['events'][event_key].append(
                             (argument['start'], argument['end'], argument2idx[role]))
-
+                    """
                 # self.sent_li.append([CLS] + words + [SEP])
                 # self.entities_li.append([[PAD]] + entities + [[PAD]])
                 self.sent_li.append([CLS] + words)
                 self.entities_li.append([[PAD]] + entities)
 
-                self.triggers_li.append(triggers)
+                self.attitudes_li.append(attitudes)
                 self.arguments_li.append(arguments)
 
     def __len__(self):
         return len(self.sent_li)
 
     def __getitem__(self, idx): # gets sentence idx, tokenizes all, and returns the information of one sentence
-        words, entities, triggers, arguments = self.sent_li[idx], self.entities_li[
-            idx], self.triggers_li[idx], self.arguments_li[idx]
+        words, entities, attitudes, arguments = self.sent_li[idx], self.entities_li[
+            idx], self.attitudes_li[idx], self.arguments_li[idx]
 
         # We give credits only to the first piece.
         tokens_x, entities_x, is_heads = [], [], []
@@ -112,7 +110,7 @@ class ACE2005Dataset(data.Dataset):
 
             tokens_x.extend(tokens_xx), entities_x.extend(e), is_heads.extend(is_head)
 
-        triggers_y = [trigger2idx[t] for t in triggers]
+        attitudes_y = [attitude2idx[t] for t in attitudes]
         head_indexes = []
         for i in range(len(is_heads)):
             if is_heads[i]:
@@ -120,14 +118,14 @@ class ACE2005Dataset(data.Dataset):
 
         seqlen = len(tokens_x)
 
-        return tokens_x, entities_x, triggers_y, arguments, seqlen, head_indexes, words, triggers
+        return tokens_x, entities_x, attitudes_y, arguments, seqlen, head_indexes, words, attitudes
 
     def get_samples_weight(self):
         samples_weight = []
-        for triggers in self.triggers_li:
+        for attitudes in self.attitudes_li:
             not_none = False
-            for trigger in triggers:
-                if trigger != NONE:
+            for attitude in attitudes:
+                if attitude != NONE:
                     not_none = True
                     break
             if not_none:
@@ -138,7 +136,7 @@ class ACE2005Dataset(data.Dataset):
 
 
 def pad(batch):
-    tokens_x_2d, entities_x_3d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = list(
+    tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = list(
         map(list, zip(*batch)))
     maxlen = np.array(seqlens_1d).max()
 
@@ -146,12 +144,12 @@ def pad(batch):
         tokens_x_2d[i] = tokens_x_2d[i] + [0] * (maxlen - len(tokens_x_2d[i]))
         head_indexes_2d[i] = head_indexes_2d[i] + \
             [0] * (maxlen - len(head_indexes_2d[i]))
-        triggers_y_2d[i] = triggers_y_2d[i] + \
-            [trigger2idx[PAD]] * (maxlen - len(triggers_y_2d[i]))
+        attitudes_y_2d[i] = attitudes_y_2d[i] + \
+            [attitude2idx[PAD]] * (maxlen - len(attitudes_y_2d[i]))
         entities_x_3d[i] = entities_x_3d[i] + [[entity2idx[PAD]]
                                                for _ in range(maxlen - len(entities_x_3d[i]))]
 
     return tokens_x_2d, entities_x_3d, \
-        triggers_y_2d, arguments_2d, \
+        attitudes_y_2d, arguments_2d, \
         seqlens_1d, head_indexes_2d, \
-        words_2d, triggers_2d
+        words_2d, attitudes_2d

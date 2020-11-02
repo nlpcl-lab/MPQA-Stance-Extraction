@@ -65,7 +65,7 @@ def calc_metric(y_true, y_pred):
     return precision, recall, f1
 
 
-def find_triggers(labels):
+def find_attitudes(labels):
     """
     :param labels: ['B-Conflict:Attack', 'I-Conflict:Attack', 'O', 'B-Life:Marry']
     :return: [(0, 2, 'Conflict:Attack'), (3, 4, 'Life:Marry')]

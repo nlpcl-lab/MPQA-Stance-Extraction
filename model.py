@@ -5,13 +5,13 @@ import torch.nn.functional as F
 import numpy as np
 
 from pytorch_pretrained_bert import BertModel
-from data_load import idx2trigger, argument2idx
+from data_load import idx2attitude, argument2idx
 from consts import NONE
-from utils import find_triggers
+from utils import find_attitudes
 
 
 class Net(nn.Module):
-    def __init__(self, trigger_size=None, entity_size=None, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu")):
+    def __init__(self, attitude_size=None, entity_size=None, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu")):
         super().__init__()
         self.bert = BertModel.from_pretrained('bert-base-uncased')
         self.entity_embed = MultiLabelEmbeddingLayer(
@@ -26,8 +26,8 @@ class Net(nn.Module):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
         )
-        self.fc_trigger = nn.Sequential(
-            nn.Linear(hidden_size, trigger_size),
+        self.fc_attitude = nn.Sequential(
+            nn.Linear(hidden_size, attitude_size),
         )
         self.fc_argument = nn.Sequential(
             nn.Linear(hidden_size * 2, argument_size),
@@ -35,9 +35,9 @@ class Net(nn.Module):
         self.device = device
         self.finetune = finetune
 
-    def predict_triggers(self, tokens_x_2d, entities_x_3d, head_indexes_2d, triggers_y_2d, arguments_2d):
+    def predict_attitudes(self, tokens_x_2d, entities_x_3d, head_indexes_2d, attitudes_y_2d, arguments_2d):
         tokens_x_2d = torch.LongTensor(tokens_x_2d).to(self.device)
-        triggers_y_2d = torch.LongTensor(triggers_y_2d).to(self.device)
+        attitudes_y_2d = torch.LongTensor(attitudes_y_2d).to(self.device)
         head_indexes_2d = torch.LongTensor(head_indexes_2d).to(self.device)
 
         # entity_x_2d = self.entity_embed(entities_x_3d)
@@ -64,8 +64,8 @@ class Net(nn.Module):
 
         # x, (h_n, c_n) = self.rnn(x)
 
-        trigger_logits = self.fc_trigger(x)
-        trigger_hat_2d = trigger_logits.argmax(-1)
+        attitude_logits = self.fc_attitude(x)
+        attitude_hat_2d = attitude_logits.argmax(-1)
 
         argument_hidden, argument_keys = [], []
         for i in range(batch_size):
@@ -77,10 +77,10 @@ class Net(nn.Module):
                 golden_entity_tensors[candidates[j]
                                       ] = x[i, e_start:e_end, ].mean(dim=0)
 
-            predicted_triggers = find_triggers(
-                [idx2trigger[trigger] for trigger in trigger_hat_2d[i].tolist()])
-            for predicted_trigger in predicted_triggers:
-                t_start, t_end, t_type_str = predicted_trigger
+            predicted_attitudes = find_attitudes(
+                [idx2attitude[attitude] for attitude in attitude_hat_2d[i].tolist()])
+            for predicted_attitude in predicted_attitudes:
+                t_start, t_end, t_type_str = predicted_attitude
                 event_tensor = x[i, t_start:t_end, ].mean(dim=0)
                 for j in range(len(candidates)):
                     e_start, e_end, e_type_str = candidates[j]
@@ -91,7 +91,7 @@ class Net(nn.Module):
                     argument_keys.append(
                         (i, t_start, t_end, t_type_str, e_start, e_end, e_type_str))
 
-        return trigger_logits, triggers_y_2d, trigger_hat_2d, argument_hidden, argument_keys
+        return attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys
 
     def predict_arguments(self, argument_hidden, argument_keys, arguments_2d):
         argument_hidden = torch.stack(argument_hidden)

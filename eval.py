@@ -9,8 +9,8 @@ from model import Net
 from sklearn import metrics
 import numpy as np
 
-from data_load import ACE2005Dataset, pad, all_triggers, all_entities, idx2trigger, all_arguments
-from utils import calc_metric, find_triggers
+from data_load import MPQADataset, pad, all_attitudes, all_entities, idx2attitude, all_arguments
+from utils import calc_metric, find_attitudes
 
 
 def eval(model, iterator, fname):
@@ -18,19 +18,19 @@ def eval(model, iterator, fname):
     start = time.time()
     model.eval()
 
-    words_all, triggers_all, triggers_hat_all, arguments_all, arguments_hat_all = [], [], [], [], []
+    words_all, attitudes_all, attitudes_hat_all, arguments_all, arguments_hat_all = [], [], [], [], []
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            tokens_x_2d, entities_x_3d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = batch
+            tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
 
-            trigger_logits, triggers_y_2d, trigger_hat_2d, argument_hidden, argument_keys = model.module.predict_triggers(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
+            attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                           head_indexes_2d=head_indexes_2d,
-                                                                                                                          triggers_y_2d=triggers_y_2d, arguments_2d=arguments_2d)
+                                                                                                                          attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d)
 
             words_all.extend(words_2d)
 
-            triggers_all.extend(triggers_2d)
-            triggers_hat_all.extend(trigger_hat_2d.cpu().numpy().tolist())
+            attitudes_all.extend(attitudes_2d)
+            attitudes_hat_all.extend(attitude_hat_2d.cpu().numpy().tolist())
             arguments_all.extend(arguments_2d)
 
             if len(argument_keys) > 0:
@@ -42,67 +42,67 @@ def eval(model, iterator, fname):
                 argument_hat_2d = [{'events': {}} for _ in range(batch_size)]
                 arguments_hat_all.extend(argument_hat_2d)
 
-    triggers_true, triggers_pred, arguments_true, arguments_pred = [], [], [], []
-    triggers_true_report, triggers_pred_report = [], []
+    attitudes_true, attitudes_pred, arguments_true, arguments_pred = [], [], [], []
+    attitudes_true_report, attitudes_pred_report = [], []
 
     with open('temp', 'w') as fout:
-        for i, (words, triggers, triggers_hat, arguments, arguments_hat) in enumerate(zip(words_all, triggers_all, triggers_hat_all, arguments_all, arguments_hat_all)):
-            triggers_hat = triggers_hat[:len(words) - 1]
-            triggers_hat = [idx2trigger[hat] for hat in triggers_hat]
+        for i, (words, attitudes, attitudes_hat, arguments, arguments_hat) in enumerate(zip(words_all, attitudes_all, attitudes_hat_all, arguments_all, arguments_hat_all)):
+            attitudes_hat = attitudes_hat[:len(words) - 1]
+            attitudes_hat = [idx2attitude[hat] for hat in attitudes_hat]
 
-            assert len(triggers) == len(triggers_hat), "len(triggers)={}, len(triggers_hat)={}".format(
-                len(triggers), len(triggers_hat))
+            assert len(attitudes) == len(attitudes_hat), "len(attitudes)={}, len(attitudes_hat)={}".format(
+                len(attitudes), len(attitudes_hat))
 
             # [(ith sentence, t_start, t_end, t_type_str)]
-            triggers_true.extend([(i, *item)
-                                  for item in find_triggers(triggers)])
-            triggers_pred.extend([(i, *item)
-                                  for item in find_triggers(triggers_hat)])
+            attitudes_true.extend([(i, *item)
+                                  for item in find_attitudes(attitudes)])
+            attitudes_pred.extend([(i, *item)
+                                  for item in find_attitudes(attitudes_hat)])
 
             # [(ith sentence, t_start, t_end, t_type_str, a_start, a_end, a_type_idx)]
-            for trigger in arguments['events']:
-                t_start, t_end, t_type_str = trigger
-                for argument in arguments['events'][trigger]:
+            for attitude in arguments['events']:
+                t_start, t_end, t_type_str = attitude
+                for argument in arguments['events'][attitude]:
                     a_start, a_end, a_type_idx = argument
                     arguments_true.append(
                         (i, t_start, t_end, t_type_str, a_start, a_end, a_type_idx))
 
-            for trigger in arguments_hat['events']:
-                t_start, t_end, t_type_str = trigger
-                for argument in arguments_hat['events'][trigger]:
+            for attitude in arguments_hat['events']:
+                t_start, t_end, t_type_str = attitude
+                for argument in arguments_hat['events'][attitude]:
                     a_start, a_end, a_type_idx = argument
                     arguments_pred.append(
                         (i, t_start, t_end, t_type_str, a_start, a_end, a_type_idx))
 
-            for w, t, t_h in zip(words[1:], triggers, triggers_hat):
+            for w, t, t_h in zip(words[1:], attitudes, attitudes_hat):
                 fout.write('{}\t{}\t{}\n'.format(w, t, t_h))
             # fout.write('#arguments#{}\n'.format(arguments['events']))
             # fout.write('#arguments_hat#{}\n'.format(arguments_hat['events']))
             fout.write("\n")
 
-            triggers_true_report.extend(triggers)
-            triggers_pred_report.extend(triggers_hat)
+            attitudes_true_report.extend(attitudes)
+            attitudes_pred_report.extend(attitudes_hat)
 
-    # print(metrics.classification_report([trigger for trigger in triggers_true_report], [trigger for trigger in triggers_pred_report]))
+    # print(metrics.classification_report([attitude for attitude in attitudes_true_report], [attitude for attitude in attitudes_pred_report]))
 
     print('[Evaluation] test classification')
-    trigger_p, trigger_r, trigger_f1 = calc_metric(
-        triggers_true, triggers_pred)
+    attitude_p, attitude_r, attitude_f1 = calc_metric(
+        attitudes_true, attitudes_pred)
     print(
-        'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(trigger_p, trigger_r, trigger_f1))
+        'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p, attitude_r, attitude_f1))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
     # print('[argument classification]')
     # argument_p, argument_r, argument_f1 = calc_metric(arguments_true, arguments_pred)
     # print('P={:.3f}\tR={:.3f}\tF1={:.3f}'.format(argument_p, argument_r, argument_f1))
     print()
     print('[Evaluation] test identification')
-    triggers_true = [(item[0], item[1], item[2]) for item in triggers_true]
-    triggers_pred = [(item[0], item[1], item[2]) for item in triggers_pred]
+    attitudes_true = [(item[0], item[1], item[2]) for item in attitudes_true]
+    attitudes_pred = [(item[0], item[1], item[2]) for item in attitudes_pred]
 
-    trigger_p_, trigger_r_, trigger_f1_ = calc_metric(
-        triggers_true, triggers_pred)
+    attitude_p_, attitude_r_, attitude_f1_ = calc_metric(
+        attitudes_true, attitudes_pred)
     print('Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(
-        trigger_p_, trigger_r_, trigger_f1_))
+        attitude_p_, attitude_r_, attitude_f1_))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
 
     # print('[argument identification]')
@@ -111,21 +111,21 @@ def eval(model, iterator, fname):
     # argument_p_, argument_r_, argument_f1_ = calc_metric(arguments_true, arguments_pred)
     # print('P={:.3f}\tR={:.3f}\tF1={:.3f}'.format(argument_p_, argument_r_, argument_f1_))
 
-    metric = '[trigger classification]\tP={:.3f}\nR={:.3f}\tF1={:.3f}\n'.format(
-        trigger_p, trigger_r, trigger_f1)
+    metric = '[attitude classification]\tP={:.3f}\nR={:.3f}\tF1={:.3f}\n'.format(
+        attitude_p, attitude_r, attitude_f1)
     # metric += '[argument classification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p, argument_r, argument_f1)
-    metric += '[trigger identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(
-        trigger_p_, trigger_r_, trigger_f1_)
+    metric += '[attitude identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(
+        attitude_p_, attitude_r_, attitude_f1_)
 
     # metric += '[argument identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p_, argument_r_, argument_f1_)
     final = fname + \
-        ".P%.2f_R%.2f_F%.2f" % (trigger_p_, trigger_r_, trigger_f1_)
+        ".P%.2f_R%.2f_F%.2f" % (attitude_p_, attitude_r_, attitude_f1_)
     with open(final, 'w') as fout:
         result = open("temp", "r").read()
         fout.write("{}\n".format(result))
         # fout.write(metric)
     os.remove("temp")
-    return metric, trigger_p_, trigger_r_, trigger_f1_
+    return metric, attitude_p_, attitude_r_, attitude_f1_
 
 
 if __name__ == "__main__":
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # torch.cuda.set_device(1)
 
-    test_dataset = ACE2005Dataset(hp.testset)
+    test_dataset = MPQADataset(hp.testset)
 
     test_iter = data.DataLoader(dataset=test_dataset,
                                 batch_size=hp.batch_size,

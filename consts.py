@@ -6,52 +6,18 @@ UNK = "[UNK]"
 CLS = '[CLS]'
 SEP = '[SEP]'
 
-# 34 event triggers
-TRIGGERSSSSS = ['Business:Merge-Org',
-                'Business:Start-Org',
-                'Business:Declare-Bankruptcy',
-                'Business:End-Org',
-                'Justice:Pardon',
-                'Justice:Extradite',
-                'Justice:Execute',
-                'Justice:Fine',
-                'Justice:Trial-Hearing',
-                'Justice:Sentence',
-                'Justice:Appeal',
-                'Justice:Convict',
-                'Justice:Sue',
-                'Justice:Release-Parole',
-                'Justice:Arrest-Jail',
-                'Justice:Charge-Indict',
-                'Justice:Acquit',
-                'Conflict:Demonstrate',
-                'Conflict:Attack',
-                'Contact:Phone-Write',
-                'Contact:Meet',
-                'Personnel:Start-Position',
-                'Personnel:Elect',
-                'Personnel:End-Position',
-                'Personnel:Nominate',
-                'Transaction:Transfer-Ownership',
-                'Transaction:Transfer-Money',
-                'Life:Marry',
-                'Life:Divorce',
-                'Life:Be-Born',
-                'Life:Die',
-                'Life:Injure',
-                'Movement:Transport']
 
-# 7 event triggers
-TRIGGERS = ['Business',
-            'Justice',
-            'Conflict',
-            'Contact',
-            'Personnel',
-            'Transaction',
-            'Life',
-            'Movement']
-# 7 event triggers
-TRIGGERS = ['EVENT']
+ATTITUDES = ['other-attitude',
+             'arguing-pos',
+             'sentiment-neg',
+             'speculation',
+             'agree-neg',
+             'sentiment-pos',
+             'arguing-neg',
+             'intention-pos',
+             'agree-pos',
+             'intention-neg',
+             'other']
 
 """
     28 argument roles
@@ -144,13 +110,3 @@ ENTITIES = ['VEH:Water',
             'FAC:Plant',
             'GPE:Continent']
 
-# 45 pos tags
-POSTAGS = ['VBZ', 'NNS', 'JJR', 'VB', 'RBR',
-           'WP', 'NNP', 'RP', 'RBS', 'VBP',
-           'IN', 'UH', 'JJS', 'NNPS', 'PRP$',
-           'MD', 'DT', 'WP$', 'POS', 'LS',
-           'CC', 'VBN', 'EX', 'NN', 'VBG',
-           'SYM', 'FW', 'TO', 'JJ', 'VBD',
-           'WRB', 'CD', 'PDT', 'WDT', 'PRP',
-           'RB', ',', '``', "''", ':',
-           '.', '$', '#', '-LRB-', '-RRB-']

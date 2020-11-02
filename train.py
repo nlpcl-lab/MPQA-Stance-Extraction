@@ -10,7 +10,7 @@ from torch.optim.adamw import AdamW
 import transformers
 from model import Net
 
-from data_load import ACE2005Dataset, pad, all_triggers, all_entities, all_arguments, tokenizer
+from data_load import MPQADataset, pad, all_attitudes, all_entities, all_arguments, tokenizer
 from utils import report_to_telegram, set_random_seed
 from eval import eval
 
@@ -18,34 +18,34 @@ from eval import eval
 def train(model, iterator, optimizer, criterion, scheduler):
     model.train()
     for i, batch in enumerate(iterator):
-        tokens_x_2d, entities_x_3d, triggers_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, triggers_2d = batch
+        tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
         optimizer.zero_grad()
-        trigger_logits, triggers_y_2d, trigger_hat_2d, argument_hidden, argument_keys = model.module.predict_triggers(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
+        attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                       head_indexes_2d=head_indexes_2d,
-                                                                                                                      triggers_y_2d=triggers_y_2d, arguments_2d=arguments_2d)
+                                                                                                                      attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d)
         """
-        print(triggers_y_2d.shape)
+        print(attitudes_y_2d.shape)
         print(len(words_2d), len(words_2d[0]))
-        print(triggers_y_2d[1])
+        print(attitudes_y_2d[1])
         print(words_2d[1])
         input()
         
-        print(trigger_logits.shape)
-        print(type(trigger_logits))
+        print(attitude_logits.shape)
+        print(type(attitude_logits))
 
-        print(trigger_logits.view(-1, trigger_logits.shape[-1]).shape)
-        print(trigger_logits.view(-1, trigger_logits.shape[-1]))
-        print(triggers_y_2d.shape)
-        print(triggers_y_2d.view(-1).shape)
+        print(attitude_logits.view(-1, attitude_logits.shape[-1]).shape)
+        print(attitude_logits.view(-1, attitude_logits.shape[-1]))
+        print(attitudes_y_2d.shape)
+        print(attitudes_y_2d.view(-1).shape)
         """
 
-        trigger_logits = trigger_logits.view(-1, trigger_logits.shape[-1])
-        trigger_loss = criterion(trigger_logits, triggers_y_2d.view(-1))
+        attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
+        attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
 
         # if len(argument_keys) > 0:
         #     argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(argument_hidden, argument_keys, arguments_2d)
         #     argument_loss = criterion(argument_logits, arguments_y_1d)
-        #     loss = trigger_loss + 2 * argument_loss
+        #     loss = attitude_loss + 2 * argument_loss
         #     if i == 0:
         #         print("=====sanity check for arguments======")
         #         print('arguments_y_1d:', arguments_y_1d)
@@ -53,9 +53,9 @@ def train(model, iterator, optimizer, criterion, scheduler):
         #         print("argument_hat_2d[0]:", argument_hat_2d[0]['events'])
         #         print("=======================")
         # else:
-        #     loss = trigger_loss
+        #     loss = attitude_loss
 
-        loss = trigger_loss
+        loss = attitude_loss
 
         nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         loss.backward()
@@ -69,10 +69,10 @@ def train(model, iterator, optimizer, criterion, scheduler):
                 tokens_x_2d[0])[:seqlens_1d[0]])
             print("entities_x_3d[0]:", entities_x_3d[0][:seqlens_1d[0]])
             print("head_indexes_2d[0]:", head_indexes_2d[0][:seqlens_1d[0]])
-            print("triggers_2d[0]:", triggers_2d[0])
-            print("triggers_y_2d[0]:", triggers_y_2d.cpu(
+            print("attitudes_2d[0]:", attitudes_2d[0])
+            print("attitudes_y_2d[0]:", attitudes_y_2d.cpu(
             ).numpy().tolist()[0][:seqlens_1d[0]])
-            print('trigger_hat_2d[0]:', trigger_hat_2d.cpu(
+            print('attitude_hat_2d[0]:', attitude_hat_2d.cpu(
             ).numpy().tolist()[0][:seqlens_1d[0]])
             print("seqlens_1d[0]:", seqlens_1d[0])
             print("arguments_2d[0]:", arguments_2d[0])
@@ -89,9 +89,9 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--n_epochs", type=int, default=100)  # 50
     parser.add_argument("--logdir", type=str, default="single")
-    parser.add_argument("--trainset", type=str, default="data/train.json")
-    parser.add_argument("--devset", type=str, default="data/dev.json")
-    parser.add_argument("--testset", type=str, default="data/test.json")
+    parser.add_argument("--trainset", type=str, default="mpqa_parsed/train.json")
+    parser.add_argument("--devset", type=str, default="mpqa_parsed/dev.json")
+    parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
 
     parser.add_argument("--telegram_bot_token", type=str, default="")
     parser.add_argument("--telegram_chat_id", type=str, default="")
@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
     model = Net(
         device=device,
-        trigger_size=len(all_triggers),
+        attitude_size=len(all_attitudes),
         entity_size=len(all_entities),
         argument_size=len(all_arguments)
     )
@@ -111,9 +111,9 @@ if __name__ == "__main__":
 
     model = nn.DataParallel(model)
 
-    train_dataset = ACE2005Dataset(hp.trainset)
-    dev_dataset = ACE2005Dataset(hp.devset)
-    test_dataset = ACE2005Dataset(hp.testset)
+    train_dataset = MPQADataset(hp.trainset)
+    dev_dataset = MPQADataset(hp.devset)
+    test_dataset = MPQADataset(hp.testset)
 
     samples_weight = train_dataset.get_samples_weight()
     # sampler = torch.utils.data.WeightedRandomSampler(
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     criterion = nn.CrossEntropyLoss(ignore_index=0)
 
-    savedir = "1016eval"
+    savedir = "mpqa_eval"
     os.makedirs(savedir, exist_ok=True)
 
     for epoch in range(1, hp.n_epochs + 1):
