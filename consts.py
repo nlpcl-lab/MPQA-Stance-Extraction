@@ -19,6 +19,10 @@ ATTITUDES = ['other-attitude',
              'intention-neg',
              'other']
 
+#simplified to this
+
+ATTITUDES = ['sentiment-neg', 'sentiment-pos']
+
 """
     28 argument roles
     

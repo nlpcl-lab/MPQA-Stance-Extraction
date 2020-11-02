@@ -9,6 +9,7 @@ from pytorch_pretrained_bert import BertAdam
 from torch.optim.adamw import AdamW
 import transformers
 from model import Net
+from torch.utils.tensorboard import SummaryWriter
 
 from data_load import MPQADataset, pad, all_attitudes, all_entities, all_arguments, tokenizer
 from utils import report_to_telegram, set_random_seed
@@ -16,6 +17,7 @@ from eval import eval
 
 
 def train(model, iterator, optimizer, criterion, scheduler):
+    writer = SummaryWriter()
     model.train()
     for i, batch in enumerate(iterator):
         tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
@@ -42,6 +44,7 @@ def train(model, iterator, optimizer, criterion, scheduler):
         attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
         attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
 
+        writer.add_scalar("Loss/train", attitude_loss, i)
         # if len(argument_keys) > 0:
         #     argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(argument_hidden, argument_keys, arguments_2d)
         #     argument_loss = criterion(argument_logits, arguments_y_1d)
@@ -80,6 +83,7 @@ def train(model, iterator, optimizer, criterion, scheduler):
 
         if i % 10 == 0:  # monitoring
             print("step: {}, loss: {}".format(i, loss.item()))
+
 
 
 if __name__ == "__main__":

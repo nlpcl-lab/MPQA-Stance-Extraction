@@ -61,8 +61,8 @@ class MPQADataset(data.Dataset):
                         continue
                     for i in range(att['trigger']['start'], att['trigger']['end']):
                         att_type = att['att_type']
-                        if att_type== 'specilation':
-                            att_type = 'speculation'
+                        if att_type not in ATTITUDES:
+                            continue
                         if i == att['trigger']['start']:
                             attitudes[i] = 'B-{}'.format(att_type)
                         else:
