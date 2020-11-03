@@ -30,7 +30,7 @@ def set_random_seed(seed: int = 42):
     torch.backends.cudnn.deterministic = True
 
 
-def calc_metric(y_true, y_pred):
+def calc_metric_strict(y_true, y_pred):
     """
     :param y_true: [(tuple), ...]
     :param y_pred: [(tuple), ...]
@@ -44,6 +44,83 @@ def calc_metric(y_true, y_pred):
     for item in y_pred:
         if item in y_true_set:
             num_correct += 1
+
+    # print('proposed: {}\tcorrect: {}\tgold: {}'.format(num_proposed, num_correct, num_gold))
+
+    if num_proposed != 0:
+        precision = num_correct / num_proposed
+    else:
+        precision = 1.0
+
+    if num_gold != 0:
+        recall = num_correct / num_gold
+    else:
+        recall = 1.0
+
+    if precision + recall != 0:
+        f1 = 2 * precision * recall / (precision + recall)
+    else:
+        f1 = 0
+
+    return precision, recall, f1
+
+def calc_metric_soft(y_true, y_pred):
+    """
+    :param y_true: [(tuple), ...]
+    :param y_pred: [(tuple), ...]
+    :return:
+    """
+    num_proposed = len(y_pred)
+    num_gold = len(y_true)
+
+    num_correct = 0
+    for pred in y_pred:
+        index, start, end, att = pred
+        for truth in y_true:
+            t_index, t_start, t_end, t_att = truth
+            if t_index == index and t_att == att:
+                if t_start <=start and end<=t_end:
+                    num_correct +=1
+
+
+    # print('proposed: {}\tcorrect: {}\tgold: {}'.format(num_proposed, num_correct, num_gold))
+
+    if num_proposed != 0:
+        precision = num_correct / num_proposed
+    else:
+        precision = 1.0
+
+    if num_gold != 0:
+        recall = num_correct / num_gold
+    else:
+        recall = 1.0
+
+    if precision + recall != 0:
+        f1 = 2 * precision * recall / (precision + recall)
+    else:
+        f1 = 0
+
+    return precision, recall, f1
+
+def calc_metric_loose(y_true, y_pred):
+    """
+    :param y_true: [(tuple), ...]
+    :param y_pred: [(tuple), ...]
+    :return:
+    """
+    num_proposed = len(y_pred)
+    num_gold = len(y_true)
+
+    num_correct = 0
+    for pred in y_pred:
+        index, start, end, att = pred
+        for truth in y_true:
+            t_index, t_start, t_end, t_att = truth
+            if t_index == index and t_att == att:
+                if not (end <t_start or start > t_end):
+                    num_correct +=1
+
+
 
     # print('proposed: {}\tcorrect: {}\tgold: {}'.format(num_proposed, num_correct, num_gold))
 

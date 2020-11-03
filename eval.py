@@ -10,7 +10,7 @@ from sklearn import metrics
 import numpy as np
 
 from data_load import MPQADataset, pad, all_attitudes, all_entities, idx2attitude, all_arguments
-from utils import calc_metric, find_attitudes
+from utils import calc_metric_strict, calc_metric_soft, calc_metric_loose, find_attitudes
 
 
 def eval(model, iterator, fname):
@@ -86,12 +86,22 @@ def eval(model, iterator, fname):
     # print(metrics.classification_report([attitude for attitude in attitudes_true_report], [attitude for attitude in attitudes_pred_report]))
 
     print('[Evaluation] test classification')
-    attitude_p, attitude_r, attitude_f1 = calc_metric(
+    attitude_p, attitude_r, attitude_f1 = calc_metric_strict(
         attitudes_true, attitudes_pred)
-    print(attitudes_true, attitudes_pred)
-    input()
+    print('Using Strict grading')
     print(
         'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p, attitude_r, attitude_f1))
+    attitude_p, attitude_r, attitude_f1 = calc_metric_strict(
+        attitudes_true, attitudes_pred)
+    print('Using Soft grading')
+    attitude_p_so, attitude_r_so, attitude_f1_so = calc_metric_soft(
+        attitudes_true, attitudes_pred)
+    print(
+        'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p_so, attitude_r_so, attitude_f1_so))
+    attitude_p_l, attitude_r_l, attitude_f1_l = calc_metric_loose(
+        attitudes_true, attitudes_pred)
+    print(
+        'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p_l, attitude_r_l, attitude_f1_l))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
     # print('[argument classification]')
     # argument_p, argument_r, argument_f1 = calc_metric(arguments_true, arguments_pred)
@@ -101,7 +111,7 @@ def eval(model, iterator, fname):
     attitudes_true = [(item[0], item[1], item[2]) for item in attitudes_true]
     attitudes_pred = [(item[0], item[1], item[2]) for item in attitudes_pred]
 
-    attitude_p_, attitude_r_, attitude_f1_ = calc_metric(
+    attitude_p_, attitude_r_, attitude_f1_ = calc_metric_strict(
         attitudes_true, attitudes_pred)
     print('Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(
         attitude_p_, attitude_r_, attitude_f1_))
@@ -127,7 +137,8 @@ def eval(model, iterator, fname):
         fout.write("{}\n".format(result))
         # fout.write(metric)
     os.remove("temp")
-    return metric, attitude_p_, attitude_r_, attitude_f1_
+
+    return metric, [attitude_p, attitude_r, attitude_f1], [attitude_p_so, attitude_r_so, attitude_f1_so], [attitude_p_l, attitude_r_l, attitude_f1_l]
 
 
 if __name__ == "__main__":

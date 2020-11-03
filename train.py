@@ -17,7 +17,7 @@ from eval import eval
 
 
 def train(model, iterator, optimizer, criterion, scheduler):
-    writer = SummaryWriter()
+
     model.train()
     for i, batch in enumerate(iterator):
         tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
@@ -44,7 +44,7 @@ def train(model, iterator, optimizer, criterion, scheduler):
         attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
         attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
 
-        writer.add_scalar("Loss/train", attitude_loss, i)
+
         # if len(argument_keys) > 0:
         #     argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(argument_hidden, argument_keys, arguments_2d)
         #     argument_loss = criterion(argument_logits, arguments_y_1d)
@@ -158,12 +158,16 @@ if __name__ == "__main__":
     savedir = "mpqa_eval"
     os.makedirs(savedir, exist_ok=True)
 
+    writer = SummaryWriter()
     for epoch in range(1, hp.n_epochs + 1):
         train(model, train_iter, optimizer, criterion, scheduler)
 
         fname = os.path.join(savedir, '{:02d}'.format(epoch))
         print("=========eval dev at epoch={}=========".format(epoch))
-        metric_dev, p, r, f1 = eval(model, dev_iter, fname + '_dev')
+        metric_dev, strict, soft, loose = eval(model, dev_iter, fname + '_dev')
 
+        writer.add_scalar("strict F1", strict[-1], epoch)
+        writer.add_scalar("soft F1", soft[-1], epoch)
+        writer.add_scalar("loose F1", loose[-1], epoch)
         torch.save(
-            model, savedir + "/model_{:02d}_{:.3f}_{:.3f}_{:.3f}.pt".format(epoch, p, r, f1))
+            model, savedir + "/model_{:02d}_{:.3f}_{:.3f}_{:.3f}.pt".format(epoch, strict[-1], soft[-1], loose[-1]))
