@@ -75,7 +75,7 @@ def find_attitudes(labels):
 
     for i in range(len(labels)):
         if labels[i][0] == 'B':
-            result.append([i, i + 1, labels[i][1]])
+            result.append([i, i + 1, '-'.join(labels[i][1:])])
 
     for item in result:
         j = item[1]

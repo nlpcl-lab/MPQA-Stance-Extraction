@@ -88,6 +88,8 @@ def eval(model, iterator, fname):
     print('[Evaluation] test classification')
     attitude_p, attitude_r, attitude_f1 = calc_metric(
         attitudes_true, attitudes_pred)
+    print(attitudes_true, attitudes_pred)
+    input()
     print(
         'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p, attitude_r, attitude_f1))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
