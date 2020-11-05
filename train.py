@@ -59,8 +59,8 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
         #     loss = attitude_loss
 
         loss = attitude_loss
-
-        writer.add_scalar("loss", loss, epoch * 500 + i)
+        if i %100==0:
+            writer.add_scalar("loss", loss, (epoch-1) * 500 + i)
 
 
         nn.utils.clip_grad_norm_(model.parameters(), 2.0)
