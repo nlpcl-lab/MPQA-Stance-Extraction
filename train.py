@@ -44,7 +44,7 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
         attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
         attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
 
-        writer.add_scalar("loss", loss, epoch*500+i)
+
         # if len(argument_keys) > 0:
         #     argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(argument_hidden, argument_keys, arguments_2d)
         #     argument_loss = criterion(argument_logits, arguments_y_1d)
@@ -59,6 +59,9 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
         #     loss = attitude_loss
 
         loss = attitude_loss
+
+        writer.add_scalar("loss", loss, epoch * 500 + i)
+
 
         nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         loss.backward()
