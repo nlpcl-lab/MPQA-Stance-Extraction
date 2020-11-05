@@ -11,7 +11,7 @@ import transformers
 from model import Net
 from torch.utils.tensorboard import SummaryWriter
 
-from data_load import MPQADataset, pad, all_attitudes, all_entities, all_arguments, tokenizer
+from data_load import MPQADataset, pad, all_attitudes, all_entities, all_arguments
 from utils import report_to_telegram, set_random_seed
 from eval import eval
 
@@ -72,8 +72,7 @@ def train(model, iterator, optimizer, criterion, scheduler,writer, mode):
 
         if i == 0:
             print("=====sanity check======")
-            print("tokens_x_2d[0]:", tokenizer.convert_ids_to_tokens(
-                tokens_x_2d[0])[:seqlens_1d[0]])
+
             print("entities_x_3d[0]:", entities_x_3d[0][:seqlens_1d[0]])
             print("head_indexes_2d[0]:", head_indexes_2d[0][:seqlens_1d[0]])
             print("attitudes_2d[0]:", attitudes_2d[0])
@@ -101,17 +100,23 @@ if __name__ == "__main__":
     parser.add_argument("--devset", type=str, default="mpqa_parsed/dev.json")
     parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
 
-    parser.add_argument("--model", type=str, default="BERT-twice")
+    parser.add_argument("--model", type=str, default="BERT-base")
 
     hp = parser.parse_args()
     # torch.cuda.set_device(1)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+    bertsize = 'base'
+    if hp.model[:4] == "BERT":
+        bertsize = hp.model.split("-")[1]
+        hp.model = hp.model.split("-")[0]
+
     model = Net(
         device=device,
         attitude_size=len(all_attitudes),
         entity_size=len(all_entities),
-        argument_size=len(all_arguments)
+        argument_size=len(all_arguments),
+        bert_size = bertsize
     )
     if device == 'cuda':
         model = model.cuda()
@@ -158,7 +163,7 @@ if __name__ == "__main__":
 
     criterion = nn.CrossEntropyLoss(ignore_index=0)
 
-    savedir = "mpqa_eval"
+    savedir = "mpqa_eval_" + model
     os.makedirs(savedir, exist_ok=True)
     mode = hp.model
     writer = SummaryWriter()

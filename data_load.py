@@ -13,13 +13,17 @@ all_entities, entity2idx, idx2entity = build_vocab(ENTITIES)
 all_arguments, argument2idx, idx2argument = build_vocab(
     ARGUMENTS, BIO_tagging=False)
 
-tokenizer = BertTokenizer.from_pretrained(
-    'bert-base-uncased', do_lower_case=True, never_split=(PAD, CLS, SEP, UNK))
+
+
+
 
 
 class MPQADataset(data.Dataset):
-    def __init__(self, fpath):
+    def __init__(self, fpath, bert_size='base'):
         self.sent_li, self.entities_li, self.attitudes_li, self.arguments_li = [], [], [], []
+
+        bert_string = 'bert-{}-uncased'.format(bert_size)
+        self.tokenizer = BertTokenizer.from_pretrained(bert_string, do_lower_case=True, never_split=(PAD, CLS, SEP, UNK))
 
         with open(fpath, 'r') as f:
             data = json.load(f)
@@ -97,8 +101,8 @@ class MPQADataset(data.Dataset):
         # We give credits only to the first piece.
         tokens_x, entities_x, is_heads = [], [], []
         for w, e in zip(words, entities): # per word
-            tokens = tokenizer.tokenize(w) if w not in [CLS, SEP] else [w]
-            tokens_xx = tokenizer.convert_tokens_to_ids(tokens)
+            tokens = self.tokenizer.tokenize(w) if w not in [CLS, SEP] else [w]
+            tokens_xx = self.tokenizer.convert_tokens_to_ids(tokens)
 
             if w in [CLS, SEP]:
                 is_head = [0]

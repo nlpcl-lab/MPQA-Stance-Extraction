@@ -11,19 +11,33 @@ from utils import find_attitudes
 
 
 class Net(nn.Module):
-    def __init__(self, attitude_size=None, entity_size=None, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu")):
+    def __init__(self, attitude_size=None, entity_size=None, argument_size=None, entity_embedding_dim=50, finetune=True, device=torch.device("cpu"), bert_size='base'):
         super().__init__()
-        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        bert_string = 'bert-{}-uncased'.format(bert_size)
+        embed_size = 768
+        if bert_size == 'base':
+            embed_size = 768
+        elif bert_size == 'medium':
+            embed_size = 512
+        elif bert_size == 'large':
+            embed_size = 20124
+        else:
+            print("unknown size: ", bert_size)
+            raise RuntimeError
+
+
+
+        self.bert = BertModel.from_pretrained(bert_string)
         self.entity_embed = MultiLabelEmbeddingLayer(
             num_embeddings=entity_size, embedding_dim=entity_embedding_dim, device=device)
         self.rnn = nn.LSTM(bidirectional=True, num_layers=1,
-                           input_size=768, hidden_size=768 // 2, batch_first=True)
+                           input_size=embed_size, hidden_size=embed_size // 2, batch_first=True)
 
         self.normal_embedding = nn.Embedding(num_embeddings=30522, embedding_dim=768, padding_idx=0)
 
 
         # hidden_size = 768 + entity_embedding_dim + postag_embedding_dim
-        hidden_size = 768
+        hidden_size = embed_size
         self.droplin = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.Dropout(0.1),
@@ -55,7 +69,7 @@ class Net(nn.Module):
                 with torch.no_grad():
                     encoded_layers, _ = self.bert(tokens_x_2d)
                     enc = encoded_layers[-1]
-        if mode == "BERT-twice":
+        if mode == "BERT_twice":
             if self.training and self.finetune:
                 self.bert.train()
                 encoded_layers, _ = self.bert(tokens_x_2d)
@@ -67,9 +81,10 @@ class Net(nn.Module):
                     encoded_layers, _ = self.bert(tokens_x_2d)
                     enc = encoded_layers[-1]
                     enc = self.droplin(enc)
-        elif mode == "Embedding-Only":
+        elif mode == "Embedding-only":
             embedded = self.normal_embedding(tokens_x_2d)
             enc = embedded
+
         elif mode == "LSTM":
             print("not implemented")
             return -1
