@@ -24,9 +24,9 @@ class Net(nn.Module):
 
         # hidden_size = 768 + entity_embedding_dim + postag_embedding_dim
         hidden_size = 768
-        self.fc1 = nn.Sequential(
-            nn.Dropout(0.3),
+        self.droplin = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
+            nn.Dropout(0.1),
             nn.ReLU(),
         )
         self.fc_attitude = nn.Sequential(
@@ -55,7 +55,18 @@ class Net(nn.Module):
                 with torch.no_grad():
                     encoded_layers, _ = self.bert(tokens_x_2d)
                     enc = encoded_layers[-1]
-
+        if mode == "BERT-twice":
+            if self.training and self.finetune:
+                self.bert.train()
+                encoded_layers, _ = self.bert(tokens_x_2d)
+                enc = encoded_layers[-1]
+                enc = self.droplin(enc)
+            else:
+                self.bert.eval()
+                with torch.no_grad():
+                    encoded_layers, _ = self.bert(tokens_x_2d)
+                    enc = encoded_layers[-1]
+                    enc = self.droplin(enc)
         elif mode == "Embedding-Only":
             embedded = self.normal_embedding(tokens_x_2d)
             enc = embedded

@@ -101,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--devset", type=str, default="mpqa_parsed/dev.json")
     parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
 
-    parser.add_argument("--model", type=str, default="BERT")
+    parser.add_argument("--model", type=str, default="BERT-twice")
 
     hp = parser.parse_args()
     # torch.cuda.set_device(1)
@@ -162,6 +162,7 @@ if __name__ == "__main__":
     os.makedirs(savedir, exist_ok=True)
     mode = hp.model
     writer = SummaryWriter()
+    highest = 0
     for epoch in range(1, hp.n_epochs + 1):
         train(model, train_iter, optimizer, criterion, scheduler,writer, mode)
 
@@ -172,5 +173,8 @@ if __name__ == "__main__":
         writer.add_scalar("strict F1", strict[-1], epoch)
         writer.add_scalar("soft F1", soft[-1], epoch)
         writer.add_scalar("loose F1", loose[-1], epoch)
-        torch.save(
-            model, savedir + "/model_{:02d}_{:.3f}_{:.3f}_{:.3f}.pt".format(epoch, strict[-1], soft[-1], loose[-1]))
+
+        if strict[-1] > highest:
+            highest = strict[-1]
+            torch.save(
+                model, savedir + "/model_{:02d}_{:.3f}_{:.3f}_{:.3f}.pt".format(epoch, strict[-1], soft[-1], loose[-1]))
