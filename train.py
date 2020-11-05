@@ -16,7 +16,7 @@ from utils import report_to_telegram, set_random_seed
 from eval import eval
 
 
-def train(model, iterator, optimizer, criterion, scheduler):
+def train(model, iterator, optimizer, criterion, scheduler,writer):
 
     model.train()
     for i, batch in enumerate(iterator):
@@ -44,7 +44,7 @@ def train(model, iterator, optimizer, criterion, scheduler):
         attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
         attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
 
-
+        writer.add_scalar("loss", loss, epoch*500+i)
         # if len(argument_keys) > 0:
         #     argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(argument_hidden, argument_keys, arguments_2d)
         #     argument_loss = criterion(argument_logits, arguments_y_1d)
@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     writer = SummaryWriter()
     for epoch in range(1, hp.n_epochs + 1):
-        train(model, train_iter, optimizer, criterion, scheduler)
+        train(model, train_iter, optimizer, criterion, scheduler,writer)
 
         fname = os.path.join(savedir, '{:02d}'.format(epoch))
         print("=========eval dev at epoch={}=========".format(epoch))
