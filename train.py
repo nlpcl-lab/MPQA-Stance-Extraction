@@ -95,7 +95,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=12)
     parser.add_argument("--lr", type=float, default=2e-5)
-    parser.add_argument("--n_epochs", type=int, default=100)  # 50
+    parser.add_argument("--n_epochs", type=int, default=200)  # 50
     parser.add_argument("--logdir", type=str, default="single")
     parser.add_argument("--trainset", type=str, default="mpqa_parsed/train.json")
     parser.add_argument("--devset", type=str, default="mpqa_parsed/dev.json")
@@ -174,7 +174,7 @@ if __name__ == "__main__":
         writer.add_scalar("soft F1", soft[-1], epoch)
         writer.add_scalar("loose F1", loose[-1], epoch)
 
-        if strict[-1] > highest:
-            highest = strict[-1]
+        if strict[-1]+soft[-1]+loose[-1] > highest:
+            highest = strict[-1]+soft[-1]+loose[-1]
             torch.save(
                 model, savedir + "/model_{:02d}_{:.3f}_{:.3f}_{:.3f}.pt".format(epoch, strict[-1], soft[-1], loose[-1]))
