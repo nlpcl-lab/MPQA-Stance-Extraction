@@ -13,7 +13,7 @@ from data_load import MPQADataset, pad, all_attitudes, all_entities, idx2attitud
 from utils import calc_metric_strict, calc_metric_soft, calc_metric_loose, find_attitudes
 
 
-def eval(model, iterator, fname):
+def eval(model, iterator, fname, mode):
     import time
     start = time.time()
     model.eval()
@@ -25,7 +25,7 @@ def eval(model, iterator, fname):
 
             attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                           head_indexes_2d=head_indexes_2d,
-                                                                                                                          attitudes_y_2d=attitudes_y_2d, arguments_2d=_, mode ="LSTM")
+                                                                                                                          attitudes_y_2d=attitudes_y_2d, arguments_2d=_, mode =mode)
 
             words_all.extend(words_2d)
 

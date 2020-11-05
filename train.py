@@ -16,7 +16,7 @@ from utils import report_to_telegram, set_random_seed
 from eval import eval
 
 
-def train(model, iterator, optimizer, criterion, scheduler,writer):
+def train(model, iterator, optimizer, criterion, scheduler,writer, mode):
 
     model.train()
     for i, batch in enumerate(iterator):
@@ -25,7 +25,7 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
 
         attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                       head_indexes_2d=head_indexes_2d,
-                                                                                                                      attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d,  mode ="BERT")
+                                                                                                                      attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d,  mode =mode)
         """
         print(attitudes_y_2d.shape)
         print(len(words_2d), len(words_2d[0]))
@@ -101,8 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--devset", type=str, default="mpqa_parsed/dev.json")
     parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
 
-    parser.add_argument("--telegram_bot_token", type=str, default="")
-    parser.add_argument("--telegram_chat_id", type=str, default="")
+    parser.add_argument("--model", type=str, default="BERT")
 
     hp = parser.parse_args()
     # torch.cuda.set_device(1)
@@ -161,14 +160,14 @@ if __name__ == "__main__":
 
     savedir = "mpqa_eval"
     os.makedirs(savedir, exist_ok=True)
-
+    mode = hp.model
     writer = SummaryWriter()
     for epoch in range(1, hp.n_epochs + 1):
-        train(model, train_iter, optimizer, criterion, scheduler,writer)
+        train(model, train_iter, optimizer, criterion, scheduler,writer, mode)
 
         fname = os.path.join(savedir, '{:02d}'.format(epoch))
         print("=========eval dev at epoch={}=========".format(epoch))
-        metric_dev, strict, soft, loose = eval(model, dev_iter, fname + '_dev')
+        metric_dev, strict, soft, loose = eval(model, dev_iter, fname + '_dev', mode)
 
         writer.add_scalar("strict F1", strict[-1], epoch)
         writer.add_scalar("soft F1", soft[-1], epoch)
