@@ -19,6 +19,9 @@ class Net(nn.Module):
         self.rnn = nn.LSTM(bidirectional=True, num_layers=1,
                            input_size=768, hidden_size=768 // 2, batch_first=True)
 
+        self.normal_embedding = nn.Embedding(num_embeddings=30522, embedding_dim=768, padding_idx=0)
+
+
         # hidden_size = 768 + entity_embedding_dim + postag_embedding_dim
         hidden_size = 768
         self.fc1 = nn.Sequential(
@@ -35,63 +38,62 @@ class Net(nn.Module):
         self.device = device
         self.finetune = finetune
 
-    def predict_attitudes(self, tokens_x_2d, entities_x_3d, head_indexes_2d, attitudes_y_2d, arguments_2d):
+    def predict_attitudes(self, tokens_x_2d, entities_x_3d, head_indexes_2d, attitudes_y_2d, arguments_2d, mode):
+
         tokens_x_2d = torch.LongTensor(tokens_x_2d).to(self.device)
         attitudes_y_2d = torch.LongTensor(attitudes_y_2d).to(self.device)
         head_indexes_2d = torch.LongTensor(head_indexes_2d).to(self.device)
 
         # entity_x_2d = self.entity_embed(entities_x_3d)
-
-        if self.training and self.finetune:
-            self.bert.train()
-            encoded_layers, _ = self.bert(tokens_x_2d)
-            enc = encoded_layers[-1]
-        else:
-            self.bert.eval()
-            with torch.no_grad():
+        if mode == "BERT":
+            if self.training and self.finetune:
+                self.bert.train()
                 encoded_layers, _ = self.bert(tokens_x_2d)
                 enc = encoded_layers[-1]
+            else:
+                self.bert.eval()
+                with torch.no_grad():
+                    encoded_layers, _ = self.bert(tokens_x_2d)
+                    enc = encoded_layers[-1]
+
+        elif mode == "Embedding-Only":
+            embedded = self.normal_embedding(tokens_x_2d)
+            enc = embedded
+        elif mode == "LSTM":
+            print("not implemented")
+            return -1
+            embedded = self.normal_embedding(tokens_x_2d)
+            enc, (h_n, c_n) = self.rnn(embedded)
+
 
         # x = torch.cat([enc, entity_x_2d, postags_x_2d], 2)
         # x = self.fc1(enc)  # x: [batch_size, seq_len, hidden_size]
         x = enc
+        #newx = torch.tensor(x.shape)
+        #print(enc.shape)
         # logits = self.fc2(x + enc)
 
         batch_size = tokens_x_2d.shape[0]
 
+        """
         for i in range(batch_size):
+            print(x[i].shape)
             x[i] = torch.index_select(x[i], 0, head_indexes_2d[i])
+            print(x[i].shape)
+        """
 
         # x, (h_n, c_n) = self.rnn(x)
 
         attitude_logits = self.fc_attitude(x)
         attitude_hat_2d = attitude_logits.argmax(-1)
 
-        argument_hidden, argument_keys = [], []
-        for i in range(batch_size):
-            candidates = arguments_2d[i]['candidates']
-            golden_entity_tensors = {}
-
-            for j in range(len(candidates)):
-                e_start, e_end, e_type_str = candidates[j]
-                golden_entity_tensors[candidates[j]
-                                      ] = x[i, e_start:e_end, ].mean(dim=0)
-
-            predicted_attitudes = find_attitudes(
-                [idx2attitude[attitude] for attitude in attitude_hat_2d[i].tolist()])
-            for predicted_attitude in predicted_attitudes:
-                t_start, t_end, t_type_str = predicted_attitude
-                event_tensor = x[i, t_start:t_end, ].mean(dim=0)
-                for j in range(len(candidates)):
-                    e_start, e_end, e_type_str = candidates[j]
-                    entity_tensor = golden_entity_tensors[candidates[j]]
-
-                    argument_hidden.append(
-                        torch.cat([event_tensor, entity_tensor]))
-                    argument_keys.append(
-                        (i, t_start, t_end, t_type_str, e_start, e_end, e_type_str))
+        argument_hidden, argument_keys =0,0
 
         return attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys
+
+
+
+
 
     def predict_arguments(self, argument_hidden, argument_keys, arguments_2d):
         argument_hidden = torch.stack(argument_hidden)

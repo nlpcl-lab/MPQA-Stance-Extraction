@@ -22,9 +22,10 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
     for i, batch in enumerate(iterator):
         tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
         optimizer.zero_grad()
+
         attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                       head_indexes_2d=head_indexes_2d,
-                                                                                                                      attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d)
+                                                                                                                      attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d,  mode ="BERT")
         """
         print(attitudes_y_2d.shape)
         print(len(words_2d), len(words_2d[0]))
@@ -41,8 +42,8 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
         print(attitudes_y_2d.view(-1).shape)
         """
 
-        attitude_logits = attitude_logits.view(-1, attitude_logits.shape[-1])
-        attitude_loss = criterion(attitude_logits, attitudes_y_2d.view(-1))
+        attitude_logits2 = attitude_logits.view(-1, attitude_logits.shape[-1])
+        attitude_loss = criterion(attitude_logits2, attitudes_y_2d.view(-1))
 
 
         # if len(argument_keys) > 0:
@@ -60,7 +61,7 @@ def train(model, iterator, optimizer, criterion, scheduler,writer):
 
         loss = attitude_loss
         if i %100==0:
-            writer.add_scalar("loss", loss, (epoch-1) * 500 + i)
+            writer.add_scalar("loss", loss, ((epoch-1) * 500 + i)/100)
 
 
         nn.utils.clip_grad_norm_(model.parameters(), 2.0)

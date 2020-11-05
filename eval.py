@@ -18,35 +18,26 @@ def eval(model, iterator, fname):
     start = time.time()
     model.eval()
 
-    words_all, attitudes_all, attitudes_hat_all, arguments_all, arguments_hat_all = [], [], [], [], []
+    words_all, attitudes_all, attitudes_hat_all = [], [], []
     with torch.no_grad():
         for i, batch in enumerate(iterator):
-            tokens_x_2d, entities_x_3d, attitudes_y_2d, arguments_2d, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
+            tokens_x_2d, entities_x_3d, attitudes_y_2d, _, seqlens_1d, head_indexes_2d, words_2d, attitudes_2d = batch
 
             attitude_logits, attitudes_y_2d, attitude_hat_2d, argument_hidden, argument_keys = model.module.predict_attitudes(tokens_x_2d=tokens_x_2d, entities_x_3d=entities_x_3d,
                                                                                                                           head_indexes_2d=head_indexes_2d,
-                                                                                                                          attitudes_y_2d=attitudes_y_2d, arguments_2d=arguments_2d)
+                                                                                                                          attitudes_y_2d=attitudes_y_2d, arguments_2d=_, mode ="LSTM")
 
             words_all.extend(words_2d)
 
             attitudes_all.extend(attitudes_2d)
             attitudes_hat_all.extend(attitude_hat_2d.cpu().numpy().tolist())
-            arguments_all.extend(arguments_2d)
 
-            if len(argument_keys) > 0:
-                argument_logits, arguments_y_1d, argument_hat_1d, argument_hat_2d = model.module.predict_arguments(
-                    argument_hidden, argument_keys, arguments_2d)
-                arguments_hat_all.extend(argument_hat_2d)
-            else:
-                batch_size = len(arguments_2d)
-                argument_hat_2d = [{'events': {}} for _ in range(batch_size)]
-                arguments_hat_all.extend(argument_hat_2d)
 
-    attitudes_true, attitudes_pred, arguments_true, arguments_pred = [], [], [], []
+    attitudes_true, attitudes_pred = [], []
     attitudes_true_report, attitudes_pred_report = [], []
 
     with open('temp', 'w') as fout:
-        for i, (words, attitudes, attitudes_hat, arguments, arguments_hat) in enumerate(zip(words_all, attitudes_all, attitudes_hat_all, arguments_all, arguments_hat_all)):
+        for i, (words, attitudes, attitudes_hat) in enumerate(zip(words_all, attitudes_all, attitudes_hat_all)):
             attitudes_hat = attitudes_hat[:len(words) - 1]
             attitudes_hat = [idx2attitude[hat] for hat in attitudes_hat]
 
@@ -60,24 +51,11 @@ def eval(model, iterator, fname):
                                   for item in find_attitudes(attitudes_hat)])
 
             # [(ith sentence, t_start, t_end, t_type_str, a_start, a_end, a_type_idx)]
-            for attitude in arguments['events']:
-                t_start, t_end, t_type_str = attitude
-                for argument in arguments['events'][attitude]:
-                    a_start, a_end, a_type_idx = argument
-                    arguments_true.append(
-                        (i, t_start, t_end, t_type_str, a_start, a_end, a_type_idx))
 
-            for attitude in arguments_hat['events']:
-                t_start, t_end, t_type_str = attitude
-                for argument in arguments_hat['events'][attitude]:
-                    a_start, a_end, a_type_idx = argument
-                    arguments_pred.append(
-                        (i, t_start, t_end, t_type_str, a_start, a_end, a_type_idx))
 
             for w, t, t_h in zip(words[1:], attitudes, attitudes_hat):
                 fout.write('{}\t{}\t{}\n'.format(w, t, t_h))
-            # fout.write('#arguments#{}\n'.format(arguments['events']))
-            # fout.write('#arguments_hat#{}\n'.format(arguments_hat['events']))
+
             fout.write("\n")
 
             attitudes_true_report.extend(attitudes)
@@ -100,11 +78,12 @@ def eval(model, iterator, fname):
         'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p_so, attitude_r_so, attitude_f1_so))
     attitude_p_l, attitude_r_l, attitude_f1_l = calc_metric_loose(
         attitudes_true, attitudes_pred)
+
     print(
         'Precision={:.3f}\nRecall={:.3f}\nF1-score={:.3f}'.format(attitude_p_l, attitude_r_l, attitude_f1_l))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
     # print('[argument classification]')
-    # argument_p, argument_r, argument_f1 = calc_metric(arguments_true, arguments_pred)
+
     # print('P={:.3f}\tR={:.3f}\tF1={:.3f}'.format(argument_p, argument_r, argument_f1))
     print()
     print('[Evaluation] test identification')
@@ -117,17 +96,8 @@ def eval(model, iterator, fname):
         attitude_p_, attitude_r_, attitude_f1_))
     print('Total processing time:{:.3f}sec'.format(time.time() - start))
 
-    # print('[argument identification]')
-    # arguments_true = [(item[0], item[1], item[2], item[3], item[4], item[5]) for item in arguments_true]
-    # arguments_pred = [(item[0], item[1], item[2], item[3], item[4], item[5]) for item in arguments_pred]
-    # argument_p_, argument_r_, argument_f1_ = calc_metric(arguments_true, arguments_pred)
-    # print('P={:.3f}\tR={:.3f}\tF1={:.3f}'.format(argument_p_, argument_r_, argument_f1_))
-
     metric = '[attitude classification]\tP={:.3f}\nR={:.3f}\tF1={:.3f}\n'.format(
         attitude_p, attitude_r, attitude_f1)
-    # metric += '[argument classification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p, argument_r, argument_f1)
-    metric += '[attitude identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(
-        attitude_p_, attitude_r_, attitude_f1_)
 
     # metric += '[argument identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p_, argument_r_, argument_f1_)
     final = fname + \
