@@ -162,10 +162,10 @@ if __name__ == "__main__":
     )
 
     criterion = nn.CrossEntropyLoss(ignore_index=0)
-
-    savedir = "mpqa_eval_" + model
-    os.makedirs(savedir, exist_ok=True)
     mode = hp.model
+    savedir = "mpqa_eval_" + mode
+    os.makedirs(savedir, exist_ok=True)
+
     writer = SummaryWriter()
     highest = 0
     for epoch in range(1, hp.n_epochs + 1):
