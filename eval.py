@@ -101,7 +101,7 @@ def eval(model, iterator, fname, mode):
 
     # metric += '[argument identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p_, argument_r_, argument_f1_)
     final = fname + \
-        ".P%.2f_R%.2f_F%.2f" % (attitude_p_, attitude_r_, attitude_f1_)
+        ".Strict%.2f_Soft%.2f_Loose%.2f" % (attitude_f1_s,attitude_f1_so,attitude_f1_l)
     with open(final, 'w') as fout:
         result = open("temp", "r").read()
         fout.write("{}\n".format(result))
