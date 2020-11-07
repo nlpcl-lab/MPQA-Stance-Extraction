@@ -124,7 +124,10 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # torch.cuda.set_device(1)
 
-    test_dataset = MPQADataset(hp.testset, hp.model.split('-')[1])
+    if hp.model[:4] == 'BERT':
+        test_dataset = MPQADataset(hp.testset, hp.model.split('-')[1])
+    else:
+        test_dataset = MPQADataset(hp.testset)
 
     test_iter = data.DataLoader(dataset=test_dataset,
                                 batch_size=hp.batch_size,
@@ -145,4 +148,4 @@ if __name__ == "__main__":
         os.makedirs(hp.logdir)
 
     print("=========eval test=========")
-    eval(model, test_iter, 'eval_test', hp.model)
+    eval(model, test_iter, 'eval_test', hp.model.split('-')[0])
