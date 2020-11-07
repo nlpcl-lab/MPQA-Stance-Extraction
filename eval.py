@@ -141,8 +141,8 @@ if __name__ == "__main__":
     if device == 'cuda':
         model = model.cuda()
 
-    if not os.path.exists(hp.eval_logdir):
-        os.makedirs(hp.eval_logdir)
+    if not os.path.exists(hp.logdir):
+        os.makedirs(hp.logdir)
 
     print("=========eval test=========")
     eval(model, test_iter, 'eval_test', hp.model)
