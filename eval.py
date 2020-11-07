@@ -113,17 +113,18 @@ def eval(model, iterator, fname, mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--logdir", type=str, default="logdir")
-    parser.add_argument("--batch_size", type=int, default=48)
-    parser.add_argument("--testset", type=str, default="data/test.json")
+    parser.add_argument("--logdir", type=str, default="eval_log_dir")
+    parser.add_argument("--batch_size", type=int, default=24)
+    parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
     parser.add_argument("--model_path", type=str,
                         default="eval_test.P0.80_R0.73_F0.76")
+    parser.add_argument("--model", type=str, default="BERT_twice-large")
 
     hp = parser.parse_args()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # torch.cuda.set_device(1)
 
-    test_dataset = MPQADataset(hp.testset)
+    test_dataset = MPQADataset(hp.testset, hp.model.split('-')[1])
 
     test_iter = data.DataLoader(dataset=test_dataset,
                                 batch_size=hp.batch_size,
@@ -140,8 +141,8 @@ if __name__ == "__main__":
     if device == 'cuda':
         model = model.cuda()
 
-    if not os.path.exists(hp.logdir):
-        os.makedirs(hp.logdir)
+    if not os.path.exists(hp.eval_logdir):
+        os.makedirs(hp.eval_logdir)
 
     print("=========eval test=========")
-    eval(model, test_iter, 'eval_test')
+    eval(model, test_iter, 'eval_test', hp.model)
