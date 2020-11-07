@@ -145,4 +145,4 @@ if __name__ == "__main__":
         os.makedirs(hp.logdir)
 
     print("=========eval test=========")
-    eval(model, test_iter, 'eval_test', hp.model)
+    eval(model, test_iter, 'eval_test', hp.model.split('-')[0])
