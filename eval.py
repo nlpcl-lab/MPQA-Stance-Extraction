@@ -101,7 +101,7 @@ def eval(model, iterator, fname, mode):
 
     # metric += '[argument identification]\tP={:.3f}\tR={:.3f}\tF1={:.3f}\n'.format(argument_p_, argument_r_, argument_f1_)
     final = fname + \
-        ".P%.2f_R%.2f_F%.2f" % (attitude_p_, attitude_r_, attitude_f1_)
+        mode + ".Strict%.3f_Soft%.3f_Loose%.3f" % (attitude_f1,attitude_f1_so,attitude_f1_l)
     with open(final, 'w') as fout:
         result = open("temp", "r").read()
         fout.write("{}\n".format(result))
@@ -113,17 +113,21 @@ def eval(model, iterator, fname, mode):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--logdir", type=str, default="logdir")
-    parser.add_argument("--batch_size", type=int, default=48)
-    parser.add_argument("--testset", type=str, default="data/test.json")
+    parser.add_argument("--logdir", type=str, default="eval_log_dir")
+    parser.add_argument("--batch_size", type=int, default=24)
+    parser.add_argument("--testset", type=str, default="mpqa_parsed/test.json")
     parser.add_argument("--model_path", type=str,
                         default="eval_test.P0.80_R0.73_F0.76")
+    parser.add_argument("--model", type=str, default="BERT_twice-large")
 
     hp = parser.parse_args()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     # torch.cuda.set_device(1)
 
-    test_dataset = MPQADataset(hp.testset)
+    if hp.model[:4] == 'BERT':
+        test_dataset = MPQADataset(hp.testset, hp.model.split('-')[1])
+    else:
+        test_dataset = MPQADataset(hp.testset)
 
     test_iter = data.DataLoader(dataset=test_dataset,
                                 batch_size=hp.batch_size,
@@ -144,4 +148,7 @@ if __name__ == "__main__":
         os.makedirs(hp.logdir)
 
     print("=========eval test=========")
-    eval(model, test_iter, 'eval_test')
+    if hp.model[:4] == 'BERT':
+        eval(model, test_iter, 'eval_test', hp.model.split('-')[0])
+    else:
+        eval(model, test_iter, 'eval_test', hp.model)
