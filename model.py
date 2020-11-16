@@ -20,7 +20,7 @@ class Net(nn.Module):
         elif bert_size == 'medium':
             embed_size = 512
         elif bert_size == 'large':
-            embed_size = 20124
+            embed_size = 1024
         else:
             print("unknown size: ", bert_size)
             raise RuntimeError
@@ -101,12 +101,10 @@ class Net(nn.Module):
 
         batch_size = tokens_x_2d.shape[0]
 
-        """
-        for i in range(batch_size):
-            print(x[i].shape)
+        
+        for i in range(batch_size):      
             x[i] = torch.index_select(x[i], 0, head_indexes_2d[i])
-            print(x[i].shape)
-        """
+        
 
         # x, (h_n, c_n) = self.rnn(x)
 
